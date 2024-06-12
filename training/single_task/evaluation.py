@@ -18,24 +18,18 @@ from utils.parameters import Params
 from data_processing.data_loader_v2 import DataLoader
 from tqdm import tqdm
 from utils.utils import get_correct_preds, get_acc, get_correct_cls_preds_from_map
-from utils.grasp_utils import get_correct_grasp_preds_from_map
+from utils.grasp_utils import get_correct_grasp_preds_from_map, single_grasp_to_bboxes
 from utils.grasp_utils import get_correct_grasp_preds, grasps_to_bboxes, box_iou, map2grasp, get_max_grasp
 
 params = Params()
 
 def get_cls_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, truncation=None, device=params.DEVICE):
     """Returns the test accuracy and loss of a CLS model."""
-    data_loader = DataLoader(dataset,
-                             params.BATCH_SIZE,
-                             train_val_split=params.TRAIN_VAL_SPLIT,
-                             include_depth=include_depth,
-                             verbose=False,
-                             seed=seed,
-                             device=device)
+    data_loader = DataLoader(params.TEST_PATH, 1, params.TRAIN_VAL_SPLIT)
     loss = 0
     correct = 0
     total = 0
-    for i, (img, cls_map, label) in enumerate(data_loader.load_batch()):
+    for i, (img, cls_map, label) in enumerate(data_loader.load_cls()):
         if truncation is not None and (i * params.BATCH_SIZE / data_loader.n_data) > truncation:
             break
         output = model(img, is_grasp=False)
@@ -50,19 +44,13 @@ def get_cls_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, 
 
 def get_grasp_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, truncation=None, device=params.DEVICE):
     """Returns the test accuracy and loss of a Grasp model."""
-    data_loader = DataLoader(dataset,
-                             params.BATCH_SIZE,
-                             train_val_split=params.TRAIN_VAL_SPLIT,
-                             include_depth=include_depth,
-                             verbose=False,
-                             seed=seed,
-                             device=device)
-
     loss = 0
     correct = 0
     total = 0
+    data_loader = DataLoader(params.TEST_PATH, 1, params.TRAIN_VAL_SPLIT)
 
-    for i, (img, map, candidates) in enumerate(data_loader.load_grasp_batch()):
+    #for (img, cls_map, label) in data_loader.load_cls():
+    for i, (img, map, candidates) in enumerate(data_loader.load_grasp()):
         if truncation is not None and (i * params.BATCH_SIZE / data_loader.n_data) > truncation:
             break
         output = model(img, is_grasp=True)
@@ -73,9 +61,8 @@ def get_grasp_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH
 
         # Convert grasp map into single grasp prediction
         output_grasp = map2singlegrasp(output)
-        output_grasp = torch.unsqueeze(output_grasp, dim=1).repeat(1, candidates.shape[1], 1)
-        
-        batch_correct, batch_total =  get_correct_grasp_preds(output_grasp, candidates) #get_correct_grasp_preds_from_map(output, map)
+        output_grasp = torch.unsqueeze(output_grasp, dim=1).repeat(1, candidates.shape[0], 1)
+        batch_correct, batch_total =  get_correct_grasp_preds(output_grasp, candidates[None, :, :]) #get_correct_grasp_preds_from_map(output, map)
         correct += batch_correct
         total += batch_total
 
@@ -149,25 +136,29 @@ def visualize_grasp(model):
     for i, (img, grasp_map, candidates) in enumerate(data_loader.load_grasp()):
         output = model(img, is_grasp=True)
         # Get confidence map
-        conf_on_rgb = get_confidence_map(img, output)
+        #conf_on_rgb = get_confidence_map(img, output)
         # Move grasp channel to the end
         output = torch.moveaxis(output, 1, -1)
         grasp_map = torch.moveaxis(grasp_map, 1, -1)
+        denormalize_grasp(output)
         # Convert grasp map into single grasp prediction
         output_grasp = map2singlegrasp(output)
         # Denoramlize grasps
+        
         denormalize_grasp(grasp_map)
         # Convert grasp maps into grasp candidate tensors
         target_grasps = map2grasp(grasp_map[0])
-        
+        # print("out")
+        # print(output_grasp)
+        # print(target_grasps)
         # Get grasps map on the rgb image
-        model_grasp_map = get_grasp_map(conf_on_rgb, output_grasp, target_grasps, vis_truth=False)
+        model_grasp_map = get_grasp_map(img, output_grasp, target_grasps, vis_truth=False)
         true_grasp_map = get_grasp_map(img, output_grasp, target_grasps, vis_model=False)
 
         vis_img = np.concatenate((model_grasp_map, true_grasp_map), 1)
         #cv2.imshow('vis', vis_img)
         #cv2.waitKey(0)
-        cv2.imwrite('vis/%s.png' % i, vis_img)
+        cv2.imwrite('vis/grasp%s.png' % i, vis_img)
 
 
 def map2singlegrasp(output):
@@ -263,8 +254,8 @@ def get_grasp_map(img, output, candidates, vis_model=True, vis_truth=True):
     Remarks: grasp plate positions are all colored RED
 
     """
-    output_bbox = grasps_to_bboxes(output)
-    target_bboxes = grasps_to_bboxes(candidates)
+    output_bbox = grasps_to_bboxes(output[None, :, :])[0]
+    target_bboxes = grasps_to_bboxes(candidates[None, :, :])[0]
     
     if not type(img) == np.ndarray:
         img_bgr = denormalize_img(img)
@@ -272,12 +263,14 @@ def get_grasp_map(img, output, candidates, vis_model=True, vis_truth=True):
         img_bgr = img
     
     if vis_model:
+        # print("boxs")
+        # print(output_bbox)
         for bbox in output_bbox:
             draw_bbox(img_bgr, bbox, (255, 0, 0), 1)
     if vis_truth:
         for bbox in target_bboxes:
             # Choose some 20% random bboxes to show:
-            if random.randint(0, 5) == 0:
+            if random.randint(0, 100) == 0:
                 draw_bbox(img_bgr, bbox, (255, 255, 255), 1)
 
     return img_bgr
