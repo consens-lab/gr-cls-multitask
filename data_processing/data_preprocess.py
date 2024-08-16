@@ -127,7 +127,7 @@ class DataPreProcessor:
     def __init__(self, path):
         self.path = path
         self.subdir = path.split('/')[-1]
-        self.save_dir_name = 'top_5_compressed_scratch'
+        self.save_dir_name = 'top_5_compressed'
         self.save_path = os.path.join(params.DATA_PATH, self.save_dir_name, self.subdir)
 
         # Create compressed subdirectory
@@ -150,7 +150,6 @@ class DataPreProcessor:
         for img_id_with_var in tqdm(self.img_id_list):
             img_id = img_id_with_var.split('_')[-1]
             img_cls = self.img_id_map[img_id_with_var]
-
             img_path = os.path.join(self.path, img_cls, img_id)
 
             self.img2npy(img_path, img_id, img_id_with_var, img_cls)
@@ -317,11 +316,15 @@ class DataPreProcessor:
             if not img_path.endswith('RGB.png'):
                 continue
             
-            img_cls = img_path.split('\\')[-3]
+            img_cls = img_path.split('/')[-3]
             # E.g. '<img_idx>_<img_id>_<img_type>.png'
-            img_name = img_path.split('\\')[-1]
-            img_var = img_name.split('_')[0]
-            img_id = img_name.split('_')[1]
+            img_name = img_path.split('/')[-1]
+            if "pen_pencil" in img_name:
+                img_var = img_name.split('_')[0] + "_" + img_name.split('_')[1]
+                img_id = img_name.split('_')[2]
+            else:
+                img_var = img_name.split('_')[0]
+                img_id = img_name.split('_')[1]
             img_id_with_var = img_var + '_' + img_id
             img_id_dict[img_id_with_var] = img_cls
 
@@ -340,6 +343,13 @@ class DataPreProcessor:
         return cls_list
 
 
+import argparse
+
 if __name__ == '__main__':
+    # parser = argparse.ArgumentParser(description='Process some data.')
+    # parser.add_argument('folder_path', type=str, help='Path to the data folder')
+    # args = parser.parse_args()
+    # data_processor = DataPreProcessor(args.folder_path)
+
     data_processor = DataPreProcessor('data/top_5/test')
     data_processor.data2npy()

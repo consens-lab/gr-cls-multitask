@@ -1,0 +1,110 @@
+[
+    {
+        "name": "1x1 Image | No Grid",
+        "input_dir": "data/original_images",
+        "output_dir": "data/top_5/test",
+        "r": 1,
+        "c": 1,
+        "save": true,
+        "gr": 0,
+        "gc": 0,
+        "l": false,
+        "lt": 0
+    },
+    {
+        "name": "1x1 Image | 2x2 Grid 10px",
+        "input_dir": "data/original_images",
+        "output_dir": "data/top_5/test",
+        "r": 1,
+        "c": 1,
+        "save": true,
+        "gr": 2,
+        "gc": 2,
+        "l": true,
+        "lt": 10
+    },
+    {
+        "name": "1x1 Image | 4x4 Grid 10px",
+        "input_dir": "data/original_images",
+        "output_dir": "data/top_5/test",
+        "r": 1,
+        "c": 1,
+        "save": true,
+        "gr": 4,
+        "gc": 4,
+        "l": true,
+        "lt": 10
+    },
+    {
+        "name": "1x1 Image | 8x8 Grid 10px",
+        "input_dir": "data/original_images",
+        "output_dir": "data/top_5/test",
+        "r": 1,
+        "c": 1,
+        "save": true,
+        "gr": 8,
+        "gc": 8,
+        "l": true,
+        "lt": 10
+    },
+    {
+        "name": "1x1 Image | 16x16 Grid 10px",
+        "input_dir": "data/original_images",
+        "output_dir": "data/top_5/test",
+        "r": 1,
+        "c": 1,
+        "save": true,
+        "gr": 16,
+        "gc": 16,
+        "l": true,
+        "lt": 10
+    },
+    {
+        "name": "2x2 Image | 2x2 Grid 10px",
+        "input_dir": "data/original_images",
+        "output_dir": "data/top_5/test",
+        "r": 2,
+        "c": 2,
+        "save": true,
+        "gr": 2,
+        "gc": 2,
+        "l": true,
+        "lt": 10
+    },
+    {
+        "name": "4x4 Image | 4x4 Grid 10px",
+        "input_dir": "data/original_images",
+        "output_dir": "data/top_5/test",
+        "r": 4,
+        "c": 4,
+        "save": true,
+        "gr": 4,
+        "gc": 4,
+        "l": true,
+        "lt": 10
+    },
+    {
+        "name": "8x8 Image | 8x8 Grid 10px",
+        "input_dir": "data/original_images",
+        "output_dir": "data/top_5/test",
+        "r": 8,
+        "c": 8,
+        "save": true,
+        "gr": 8,
+        "gc": 8,
+        "l": true,
+        "lt": 10
+    },
+    {
+        "name": "16x16 Image | 16x16 Grid 10px",
+        "input_dir": "data/original_images",
+        "output_dir": "data/top_5/test",
+        "r": 16,
+        "c": 16,
+        "save": true,
+        "gr": 16,
+        "gc": 16,
+        "l": true,
+        "lt": 10
+    }        
+]

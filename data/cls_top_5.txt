@@ -2,4 +2,4 @@ Chair
 Lamp
 figurines
 plants
-pen+pencil
+pen_pencil

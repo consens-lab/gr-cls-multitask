@@ -104,12 +104,14 @@ class DataLoader:
         for img_id_with_var in self.img_id_list:
             img_angle = int(img_id_with_var.split('_')[-1])
             img_id = img_id_with_var.split('_')[-2]
-            img_var = img_id_with_var.split('_')[0]
+            if "pen_pencil" in img_id_with_var:
+                img_var = img_id_with_var.split('_')[0] + "_" + img_id_with_var.split('_')[1]
+            else:
+                img_var = img_id_with_var.split('_')[0]
             img_name = img_var + '_' + img_id
             img_cls = self.img_id_map[img_id_with_var]
             img_cls_idx = self.img_cls_list.index(img_cls)
             img_cls_idx = torch.tensor([img_cls_idx]).to(self.device)
-
             label = torch.ones(6, dtype=torch.float32) * -1
             label[img_cls_idx] = 1.0
             label[5] = 1.0
@@ -167,7 +169,10 @@ class DataLoader:
         for img_id_with_var in self.img_id_list:
             img_angle = int(img_id_with_var.split('_')[-1])
             img_id = img_id_with_var.split('_')[-2]
-            img_var = img_id_with_var.split('_')[0]
+            if "pen_pencil" in img_id_with_var:
+                img_var = img_id_with_var.split('_')[0] + "_" + img_id_with_var.split('_')[1]
+            else:
+                img_var = img_id_with_var.split('_')[0]
             img_name = img_var + '_' + img_id
             img_cls = self.img_id_map[img_id_with_var]
 
@@ -285,18 +290,23 @@ class DataLoader:
             img_cls = img_path.split('/')[-3]
             # E.g. '<img_idx>_<img_id>_<angle>_<img_type>.png'
             img_name = img_path.split('/')[-1]
-            img_var = img_name.split('_')[0]
-            img_id = img_name.split('_')[1]
-            img_angle = img_name.split('_')[-3]
+            if "pen_pencil" in img_name:
+                img_var = img_name.split('_')[0] + "_" + img_name.split('_')[1]
+                img_id = img_name.split('_')[2]
+                img_angle = img_name.split('_')[3]
+            else:
+                img_var = img_name.split('_')[0]
+                img_id = img_name.split('_')[1]
+                img_angle = img_name.split('_')[-3]
             img_id_with_var = img_var + '_' + img_id + '_' + img_angle
             img_id_dict[img_id_with_var] = img_cls
 
         n_data = len(img_id_dict.keys())
         n_train, n_val = self.get_train_val(n_data)
         #print("debug1:",img_id_dict)
-        if verbose:
-            print('Dataset size: %s' % n_data)
-            print('Training steps: %s -- Val steps: %s' % (n_train, n_val))
+        # if verbose:
+        #     print('Dataset size: %s' % n_data)
+        #     print('Training steps: %s -- Val steps: %s' % (n_train, n_val))
         return img_id_dict
 
     def get_cls_id(self):

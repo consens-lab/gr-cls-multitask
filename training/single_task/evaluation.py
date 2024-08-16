@@ -47,7 +47,7 @@ def get_cls_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, 
             correct += batch_correct
             total += batch_total
     accuracy = get_acc(correct, total)
-    print(accuracy)
+    # print(accuracy)
     return accuracy, round(loss / total, 3)
 
 
@@ -210,7 +210,7 @@ def denormalize_grasp(grasp_map):
 
 
 def get_ref_map(ref1, ref2, ref3, ref4, cls_idx):
-    CLS = ['Chair (0)', 'Lamp (1)', 'figurines (2)', 'plants (3)', 'pen+pencil (4)']
+    CLS = ['Chair (0)', 'Lamp (1)', 'figurines (2)', 'plants (3)', 'pen_pencil (4)']
 
     ref_map_1 = np.concatenate((ref1, ref2), axis=0)
     ref_map_2 = np.concatenate((ref3, ref4), axis=0)
