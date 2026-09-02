@@ -7,7 +7,7 @@ Reza, Jordan, Luo, Patel, Tang, Niemeier
 
 Preprint: [bioRxiv 10.1101/2025.11.16.688720](https://www.biorxiv.org/content/10.1101/2025.11.16.688720v2)
 
-A shared AlexNet-based backbone is trained jointly for **object classification** and **grasp prediction**. Analyses ask whether dorsal/ventral-like specialization can emerge from task optimization, then relate model units (Shapley attributions, connectivity) to human EEG.
+An RGB–D multi-task CNN is trained jointly for **object classification** and **grasp prediction** (map-style heads). Early RGB and depth stems are initialized from ImageNet-pretrained conv layers; the shared trunk and task heads are custom (not a full AlexNet). Analyses ask whether dorsal/ventral-like specialization can emerge from task optimization, then relate model units (Shapley attributions, connectivity) to human EEG.
 
 ## Repository layout
 
