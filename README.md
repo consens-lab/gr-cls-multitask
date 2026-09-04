@@ -92,8 +92,12 @@ Shapley attribution runs write under `shap/` (and related folders). Useful scrip
 
 - `get_top_shapley.py` — aggregate top-k filters per layer / task  
 - `shapley_analysis.py` — layer-wise correlations and distributions  
-- `chi_test.py` — connection-type / task-bias analyses (includes effect-size style  
-  \(d = (\mathrm{Shap_{cls}}-\mathrm{Shap_{grasp}}) / (|\mathrm{Shap_{cls}}|+|\mathrm{Shap_{grasp}}|+\varepsilon)\))
+- `chi_test.py` — connection-type / task-bias analyses (includes effect-size style)
+
+  $$
+  d = \frac{\mathrm{Shap}_{\mathrm{cls}} - \mathrm{Shap}_{\mathrm{grasp}}}
+           {\left|\mathrm{Shap}_{\mathrm{cls}}\right| + \left|\mathrm{Shap}_{\mathrm{grasp}}\right| + \varepsilon}
+  $$
 
 Layers used by default (`Params.LAYERS`):  
 `rgb_features.0`, `features.0`, `features.4`, `features.7`, `features.10` (`TOP_K = 5`).
