@@ -8,15 +8,21 @@ from scipy import stats
 import shutil
 from matplotlib.ticker import MaxNLocator, FixedLocator
 
+import shutil
+from matplotlib.ticker import MaxNLocator, FixedLocator
+
 # Experiment parameters
-TYPES = ['cls', 'grasp']
-LAYERS = ['first','features.0','features.4', 'features.7', 'features.10']
+TYPES = ['cls']
+LAYERS = ['first', 'features.0', 'features.4', 'features.7', 'features.10'] # 
+
+# LAYERS = ['first','features.0']
 
 
 R = 100.
 DELTA = 0.2
 
 DIR = 'shap'
+params = Params()
 from scipy.stats import norm
 
 def fisher_z_transform(r):
@@ -94,7 +100,7 @@ def get_r(players, results_dict, layer):
     r_ci_upper = np.percentile(r_bootstrap, 97.5)
     return r_mean, (r_ci_lower, r_ci_upper)
     
-def plot_layer_by_task(players, results_dict, layer):
+def get_r(players, results_dict, layer):
     """
     (Scatter plot)
     (Data point = kernel w/ coordinate being (Shapley-value on cls, shapley-value on grasp))
@@ -111,6 +117,52 @@ def plot_layer_by_task(players, results_dict, layer):
             counts += np.sum(mem_tmc != -1, 0)
         # No. of iterations for each neuron
         counts = np.clip(counts, 1e-12, None)
+        
+        # Expected shapley values of each neuron
+        vals[task] = sums / (counts + 1e-12)
+    # Assuming vals is already calculated for the two tasks:
+    task_1 = list(results_dict.keys())[0]  # Access the first task
+    task_2 = list(results_dict.keys())[1]  # Access the second task
+
+
+    # Extract the values for both tasks
+    vals_task_1 = vals[task_1]
+    vals_task_2 = vals[task_2]
+    vals_task_1 = np.array(vals_task_1)
+    vals_task_2 = np.array(vals_task_2)
+    # Bootstrapped Pearson correlation
+    n_bootstrap = 1000
+    rng = np.random.default_rng(seed=42)
+    r_bootstrap = []
+    for _ in range(n_bootstrap):
+        idx = rng.integers(0, len(vals_task_1), len(vals_task_1))
+        r, _ = stats.pearsonr(vals_task_1[idx], vals_task_2[idx])
+        r_bootstrap.append(r)
+    r_bootstrap = np.array(r_bootstrap)
+    r_mean = np.mean(r_bootstrap)
+    r_ci_lower = np.percentile(r_bootstrap, 2.5)
+    r_ci_upper = np.percentile(r_bootstrap, 97.5)
+    return r_mean, (r_ci_lower, r_ci_upper)
+    
+def plot_layer_by_task(players, results_dict, layer):
+    """
+    (Scatter plot)
+    (Data point = kernel w/ coordinate being (Shapley-value on cls, shapley-value on grasp))
+    Plot shapley value scatter plot and calculate correlation
+    """
+    vals = {}
+    for task in results_dict.keys():
+        squares, sums, counts = [np.zeros(len(players)) for _ in range(3)]
+        for result in results_dict[task]:
+            mem_tmc = get_result(result)
+            
+            
+            sums += np.sum((mem_tmc != -1) * mem_tmc, 0)
+            squares += np.sum((mem_tmc != -1) * (mem_tmc ** 2), 0)
+            counts += np.sum(mem_tmc != -1, 0)
+        # No. of iterations for each neuron
+        counts = np.clip(counts, 1e-12, None)
+       
        
         # Expected shapley values of each neuron
         vals[task] = sums / (counts + 1e-12)
@@ -124,7 +176,11 @@ def plot_layer_by_task(players, results_dict, layer):
     vals_task_2 = vals[task_2]
     vals_task_1 = np.array(vals_task_1)
     # Remove value at index 36 from both arrays
+    # Remove value at index 36 from both arrays
     vals_task_2 = np.array(vals_task_2)
+    
+    vals_task_1 = np.delete(vals_task_1, 37)
+    vals_task_2 = np.delete(vals_task_2, 37)
     
     vals_task_1 = np.delete(vals_task_1, 37)
     vals_task_2 = np.delete(vals_task_2, 37)
@@ -141,9 +197,11 @@ def plot_layer_by_task(players, results_dict, layer):
 
     plt.savefig('vis/shap/layer_corr/layer_corr_%s.png' % layer)
     exit()
+    exit()
 
 def get_players(directory):
     ## Load the list of all players (filters) else save
+    
     if 'players.txt' in os.listdir(directory):
         players = open(os.path.join(directory, 'players.txt')).read().split(',')
         players = np.array(players)
@@ -161,8 +219,10 @@ def instatiate_chosen_players(directory, players):
 
 def get_results_list(directory):
     results = []
+    print("new_list")
     for file in os.listdir(directory):
         if file.endswith('.h5'):
+            print(file)
             results.append(os.path.join(directory, file))
 
     return results
@@ -177,7 +237,7 @@ def get_shapley_top_k(model_name, layer, k):
     ## CB directory
     run_name = '%s_%s' % (model_name, layer)
     run_dir = os.path.join(DIR, run_name)
-
+    print(run_dir)
     players = get_players(run_dir)
     instatiate_chosen_players(run_dir, players)    
     results = get_results_list(run_dir)
@@ -218,6 +278,7 @@ def get_cb_bounds(vals, variances, counts):
 
     return cbs
     
+    
 
 def plot_shapley_dist(players, results, model_type, layer):
     """
@@ -233,17 +294,21 @@ def plot_shapley_dist(players, results, model_type, layer):
     for result in results:
         mem_tmc = get_result(result)
         
+        
         sums += np.sum((mem_tmc != -1) * mem_tmc, 0)
         squares += np.sum((mem_tmc != -1) * (mem_tmc ** 2), 0)
         counts += np.sum(mem_tmc != -1, 0)
     # No. of iterations for each neuron
     counts = np.clip(counts, 1e-12, None)
    
+   
     # Expected shapley values of each neuron
     vals = sums / (counts + 1e-12)
 
+
     # Variance of shapley values of each neuron
     variances, stds = get_variance_std(sums, vals, squares, counts)
+   
    
     # Empirical berstein confidence bounds for each neuron
     cbs = get_cb_bounds(vals, variances, counts)
@@ -252,7 +317,20 @@ def plot_shapley_dist(players, results, model_type, layer):
     top_k_vals[sorted_vals_idx] = 1
 
     # Set bar colors
+
+    # Set bar colors
     colors = np.where(top_k_vals == 1, 'coral', 'turquoise')
+    if model_type == 'cls':
+        colors = np.where(top_k_vals == 1, 'red', 'lightcoral')
+    elif model_type == 'grasp':
+        colors = np.where(top_k_vals == 1, 'blue', 'lightblue')
+    else: # fallback color
+        colors = np.where(top_k_vals == 1, 'grey', 'lightgrey')
+
+    # for i in range(len(players)):
+    #     if top_k_vals[i] == 1:
+    #         shutil.copy('features/%s/%s.png' % (layer, i), 'features/%s_%s_%s.png' % (layer, model_type, i))
+            
     if model_type == 'cls':
         colors = np.where(top_k_vals == 1, 'red', 'lightcoral')
     elif model_type == 'grasp':
@@ -271,9 +349,12 @@ def plot_shapley_dist(players, results, model_type, layer):
     # ax.xaxis.grid(False)
     ax.axhline(0, color='gray', linewidth=0.7, linestyle='-') 
     # ax.yaxis.grid(False)
+    # ax.xaxis.grid(False)
+    ax.axhline(0, color='gray', linewidth=0.7, linestyle='-') 
+    # ax.yaxis.grid(False)
     fig.suptitle("Shapley Values for %s on %s" % (layer, model_type))
 
-    plt.savefig('vis/shap/shapley_dist/shapley_dist_%s_%s.png' % (model_type, '_'.join(layer.split('.'))))
+    plt.savefig('vis/shap/shapley_dist/%d_shapley_dist_%s_%s.png' % (params.SEED, model_type, '_'.join(layer.split('.'))))
 
 
 def plot_shapley_conf_trend(players, results, model_type, layer):
@@ -366,8 +447,8 @@ def plot_all_layer_scatter(players_dict, results_dict_by_layer, layers):
         r_values.append(r)
         confidence_intervals.append(p)
         scatter_data.append((x, y, r, layer, task_1, task_2))
-    np.save("shap_arrays/shap_values_depth.npy", shap_vals)
-    exit()
+    # np.save("shap_arrays/shap_values_depth.npy", shap_vals)
+    # exit()
     # plot main correlation line
     fig, ax = plt.subplots(figsize=(10, 8))
     x_values = np.arange(1, len(r_values) + 1)
@@ -405,12 +486,433 @@ def plot_all_layer_scatter(players_dict, results_dict_by_layer, layers):
         inset_ax.set_ylabel(f'{task_2}', fontsize=6, labelpad=1)
         inset_ax.tick_params(axis='both', which='major', labelsize=6)
 
-    plt.savefig('vis/shap/layer_corr/combined_below_graph_black.png', dpi=300)
+    plt.savefig(f'vis/shap/layer_corr/{params.SEED}combined_below_graph_black.png', dpi=300)
 
+def plot_cross_seed_scatter(players_dict_seed1, results_dict_seed1, 
+                             players_dict_seed2, results_dict_seed2, 
+                             layers, task, seed1_label='Seed 1', seed2_label='Seed 2', dif_task = False):
+    '''
+    Plot correlation in neuron shapley values for the same task
+    between two differently-seeded models, across layers.
+    Mirrors the structure of plot_all_layer_scatter.
+    '''
+    r_values = []
+    scatter_data = []
+    confidence_intervals = []
+
+    for layer_i, layer in enumerate(layers):
+        players1 = players_dict_seed1[layer]
+        players2 = players_dict_seed2[layer]
+        results1 = results_dict_seed1[layer]
+        results2 = results_dict_seed2[layer]
+
+        def compute_vals(players, results, task):
+            squares, sums, counts = [np.zeros(len(players)) for _ in range(3)]
+            for result in results[task]:
+                mem_tmc = get_result(result)
+                sums += np.sum((mem_tmc != -1) * mem_tmc, 0)
+                squares += np.sum((mem_tmc != -1) * (mem_tmc ** 2), 0)
+                counts += np.sum(mem_tmc != -1, 0)
+            counts = np.clip(counts, 1e-12, None)
+            return sums / (counts + 1e-12)
+
+        x = compute_vals(players1, results1, task)
+        
+        y = compute_vals(players2, results2, task if (dif_task == False) else ["grasp", "cls"][task == "grasp"])
+        # Bootstrapped Pearson correlation
+        n_bootstrap = 1000
+        rng = np.random.default_rng(seed=42)
+        r_bootstrap = []
+        min_len = min(len(x), len(y))
+        x_trim, y_trim = x[:min_len], y[:min_len]
+        for _ in range(n_bootstrap):
+            idx = rng.integers(0, min_len, min_len)
+            r, _ = stats.pearsonr(x_trim[idx], y_trim[idx])
+            r_bootstrap.append(r)
+        r_bootstrap = np.array(r_bootstrap)
+        r_mean = np.mean(r_bootstrap)
+        r_ci_lower = np.percentile(r_bootstrap, 2.5)
+        r_ci_upper = np.percentile(r_bootstrap, 97.5)
+
+        r_values.append(r_mean)
+        confidence_intervals.append((r_ci_lower, r_ci_upper))
+        scatter_data.append((x_trim, y_trim, r_mean, layer))
+
+    # Plot main correlation line with inset scatters
+    fig, ax = plt.subplots(figsize=(10, 8))
+    x_values = np.arange(1, len(r_values) + 1)
+
+    lower_bounds = [ci[0] for ci in confidence_intervals]
+    upper_bounds = [ci[1] for ci in confidence_intervals]
+
+    ax.errorbar(x_values, r_values,
+                yerr=[np.abs(np.array(r_values) - np.array(lower_bounds)),
+                      np.abs(np.array(upper_bounds) - np.array(r_values))],
+                fmt='o', capsize=5, linestyle='--', color="black")
+
+    ax.set_xticks(x_values)
+    ax.xaxis.set_major_locator(plt.FixedLocator(x_values[::2]))
+    ax.axhline(0, color='gray', linewidth=0.7, linestyle='-')
+    ax.set_ylabel('Correlation (r-value)', labelpad=2, fontsize=14)
+    ax.set_xlabel('Feature extraction layer', labelpad=1.5, fontsize=14)
+    ax.set_title(f'{"Grasp" if task == "grasp" else "Recognition"} Task vs {"Grasp" if task == "cls" else "Recognition"} Pretrained on {"Grasp" if task == "grasp" else "Recognition"}', fontsize=18)
+
+    fig.subplots_adjust(bottom=0.35)
+    for i, (x, y, r, layer) in enumerate(scatter_data):
+        inset_width = 0.12
+        inset_height = 0.18
+        left = 0.13 + i * (0.83 / len(scatter_data))
+        bottom = 0.08
+
+        inset_ax = fig.add_axes([left, bottom, inset_width, inset_height])
+        inset_ax.scatter(x, y, alpha=0.7, color="black")
+        inset_ax.set_title(f'r = {r:.2f}', fontsize=8)
+        inset_ax.set_xlabel(seed1_label, fontsize=6, labelpad=1)
+        inset_ax.set_ylabel(seed2_label, fontsize=6, labelpad=1)
+        inset_ax.tick_params(axis='both', which='major', labelsize=6)
+
+    plt.savefig(f'vis/shap/layer_corr/{params.SEED}_opposite_cross_seed_{task}_{"_".join([seed1_label, seed2_label])}.png', dpi=300)
+    plt.close()
+    
+def plot_cross_seed_scatter_avr(players_dict_seed1_arr, results_dict_seed1_arr, 
+                             players_dict_seed2_arr, results_dict_seed2_arr, 
+                             layers, dif_task=True):
+    '''
+    Plot correlation in neuron shapley values for cls (red) and grasp (blue)
+    between two differently-seeded models, across layers, on the same plot.
+    '''
+    r_values_arr = [[], []]
+    confidence_intervals_arr = [[], []]
+    for task_i, task in enumerate(["cls", "grasp"]):
+        n_seeds = len(players_dict_seed1_arr[task_i])
+        for layer_i, layer in enumerate(layers):
+            first_players1 = players_dict_seed1_arr[task_i][0][layer]
+            first_players2 = players_dict_seed2_arr[task_i][0][layer]
+            x = np.zeros(len(first_players1) * n_seeds)
+            y = np.zeros(len(first_players2) * n_seeds)
+
+            for seed_i in range(n_seeds):
+                players1 = players_dict_seed1_arr[task_i][seed_i][layer]
+                players2 = players_dict_seed2_arr[task_i][seed_i][layer]
+                results1 = results_dict_seed1_arr[task_i][seed_i][layer]
+                results2 = results_dict_seed2_arr[task_i][seed_i][layer]
+
+                def compute_vals(players, results, task_name):
+                    squares, sums, counts = [np.zeros(len(players)) for _ in range(3)]
+                    for result in results[task_name]:
+                        mem_tmc = get_result(result)
+                        sums += np.sum((mem_tmc != -1) * mem_tmc, 0)
+                        squares += np.sum((mem_tmc != -1) * (mem_tmc ** 2), 0)
+                        counts += np.sum(mem_tmc != -1, 0)
+                    counts = np.clip(counts, 1e-12, None)
+                    return sums / (counts + 1e-12)
+
+                x_curr = compute_vals(players1, results1, task)
+                other_task = "grasp" if task == "cls" else "cls"
+                y_curr = compute_vals(players2, results2, task if not dif_task else other_task)
+
+                x[seed_i * len(players1): (seed_i + 1) * len(players1)] = x_curr
+                y[seed_i * len(players2): (seed_i + 1) * len(players2)] = y_curr
+
+            n_bootstrap = 1000
+            rng = np.random.default_rng(seed=42)
+            r_bootstrap = []
+            min_len = min(len(x), len(y))
+            x_trim, y_trim = x[:min_len], y[:min_len]
+            for _ in range(n_bootstrap):
+                idx = rng.integers(0, min_len, min_len)
+                r, _ = stats.pearsonr(x_trim[idx], y_trim[idx])
+                r_bootstrap.append(r)
+            r_bootstrap = np.array(r_bootstrap)
+            r_mean = np.mean(r_bootstrap)
+            r_ci_lower = np.percentile(r_bootstrap, 2.5)
+            r_ci_upper = np.percentile(r_bootstrap, 97.5)
+
+            r_values_arr[task_i].append(r_mean)
+            confidence_intervals_arr[task_i].append((r_ci_lower, r_ci_upper))
+
+    # Plot both tasks on the same axes
+    fig, ax = plt.subplots(figsize=(10, 8))
+    colors = ['red', 'blue']
+    labels = ['Recognition (cls)', 'Grasping (grasp)']
+    x_values = np.arange(1, len(layers) + 1)
+    offsets = [-0.05, 0.05]  # offset cls left, grasp right
+
+    for task_i, task_name in enumerate(["cls", "grasp"]):
+        r_values = r_values_arr[task_i]
+        confidence_intervals = confidence_intervals_arr[task_i]
+        lower_bounds = [ci[0] for ci in confidence_intervals]
+        upper_bounds = [ci[1] for ci in confidence_intervals]
+
+        ax.errorbar(x_values + offsets[task_i], r_values,
+                    yerr=[np.abs(np.array(r_values) - np.array(lower_bounds)),
+                          np.abs(np.array(upper_bounds) - np.array(r_values))],
+                    fmt='o', capsize=5, linestyle='--', color=colors[task_i], label=labels[task_i])
+
+    ax.set_xticks(x_values)
+    ax.set_xticklabels([str(v) for v in x_values])
+    ax.axhline(0, color='gray', linewidth=0.7, linestyle='-')
+    ax.set_ylabel('Correlation (r-value)', labelpad=2, fontsize=14)
+    ax.set_xlabel('Feature extraction layer', labelpad=1.5, fontsize=14)
+    ax.set_title('Cross-Seed Correlation in Neuron Shapley Values Across Layers', fontsize=18)
+    ax.legend(fontsize=12)
+
+    plt.savefig(f'vis/shap/layer_corr/avr_opposite_cross_seed.png', dpi=300)
+    plt.close()   
+   
+    
+def init_cross_seed(task = "cls", dif = 4, title=""):
+    model_name_1 = params.MODEL_NAME_SEED
+
+    players_dict = [{} for i in range(2)]
+    results_dict_by_layer = [{} for i in range(2)]
+    model_name_2_array = model_name_1.split('_')
+    seed = int(model_name_2_array[-1])
+    model_name_2_array[-1] = str(seed + dif)
+    model_name_2 = '_'.join(model_name_2_array)
+    model_names = [model_name_1, model_name_2]
+    for i, model_name in enumerate(model_names):
+        for layer in LAYERS:
+            results = {}
+            players = []
+            for model_type in [task]:
+                ## CB directory
+                run_name = '%s_%s_%s' % (model_name, layer, model_type)
+                run_dir = os.path.join(DIR, run_name)
+
+                players = get_players(run_dir)
+                instatiate_chosen_players(run_dir, players)    
+                results[model_type] = get_results_list(run_dir)
+                players_dict[i][layer] = players
+                results_dict_by_layer[i][layer] = results
+                
+    plot_cross_seed_scatter(players_dict[0], results_dict_by_layer[0], \
+        players_dict[1], results_dict_by_layer[1], LAYERS, task, {'Grasp' if task == 'grasp' else 'Recognition'}, f"{'Grasp' if task == 'cls' else 'Recognition'} Pretrained on {'Grasp' if task == 'grasp' else 'Recognition'}")
+
+def init_cross_seed_dif_task(task = "cls",dif = 4,): # here task defines the pretrained task
+    model_name_1 = params.MODEL_NAME_SEED
+
+    players_dict = [{} for i in range(2)]
+    results_dict_by_layer = [{} for i in range(2)]
+    model_name_2_array = model_name_1.split('_')
+    seed = int(model_name_2_array[-1])
+    model_name_2_array[-1] = str(seed + dif)
+    model_name_2 = '_'.join(model_name_2_array)
+    model_names = [model_name_1, model_name_2]
+    tasks = [task, "grasp" if task == "cls" else "cls"]
+    for i, model_name in enumerate(model_names):
+        for layer in LAYERS:
+            results = {}
+            players = []
+            for model_type in [tasks[i]]:
+                ## CB directory
+                run_name = '%s_%s_%s' % (model_name, layer, model_type)
+                run_dir = os.path.join(DIR, run_name)
+
+                players = get_players(run_dir)
+                instatiate_chosen_players(run_dir, players)    
+                results[model_type] = get_results_list(run_dir)
+                players_dict[i][layer] = players
+                results_dict_by_layer[i][layer] = results
+    plot_cross_seed_scatter(players_dict[0], results_dict_by_layer[0], \
+        players_dict[1], results_dict_by_layer[1], LAYERS, task, 'Grasping' if task == 'grasp' else 'Recognition',\
+        f"{'Grasping' if task != 'grasp' else 'Recognition'} Pretrained on {'Grasp' if task == 'grasp' else 'Recognition'}", dif_task=True)
+
+def init_cross_seed_dif_task_avr(seeds = []): # here task defines the pretrained task
+    players_dicts_1= [[],[]]
+    players_dicts_2 = [[],[]]
+    results_dicts_1 = [[],[]]
+    results_dicts_2 = [[],[]]
+    
+    for task_i, task in enumerate(["cls", "grasp"]):
+        
+        for seed in seeds[task_i]:
+            if str(seed)[-1] in ["1", "5"]:
+                task = "cls"
+                dif = 5
+            else:
+                task = "grasp"
+                dif = 3
+                if params.SEED == 52:
+                    diff += 40
+            model_name_1 = 'multiAlexMap_top5_v1.5' + f'_{seed}'
+            players_dict = [{} for i in range(2)]
+            results_dict_by_layer = [{} for i in range(2)]
+            model_name_2_array = model_name_1.split('_')
+            seed = int(model_name_2_array[-1])
+            model_name_2_array[-1] = str(seed + dif)
+            model_name_2 = '_'.join(model_name_2_array)
+            model_names = [model_name_1, model_name_2]
+            tasks = [task, "grasp" if task == "cls" else "cls"]
+            for i, model_name in enumerate(model_names):
+                for layer in LAYERS:
+                    results = {}
+                    players = []
+                    for model_type in [tasks[i]]:
+                        ## CB directory
+                        run_name = '%s_%s_%s' % (model_name, layer, model_type)
+                        run_dir = os.path.join(DIR, run_name)
+
+                        players = get_players(run_dir)
+                        instatiate_chosen_players(run_dir, players)    
+                        results[model_type] = get_results_list(run_dir)
+                        players_dict[i][layer] = players
+                        results_dict_by_layer[i][layer] = results
+            players_dicts_1[task_i].append(players_dict[0])
+            players_dicts_2[task_i].append(players_dict[1])
+            results_dicts_1[task_i].append(results_dict_by_layer[0])
+            results_dicts_2[task_i].append(results_dict_by_layer[1])
+        
+    plot_cross_seed_scatter_avr(players_dicts_1, results_dicts_1, \
+        players_dicts_2, results_dicts_2, LAYERS, dif_task=True)
+
+
+def save_shap_vals_dif_task(task = "cls", dif = 4):
+    top_k = 128
+    final = np.zeros((5, top_k, 2))
+    
+    model_name_1 = params.MODEL_NAME_SEED
+
+    players_dict = [{} for i in range(2)]
+    results_dict_by_layer = [{} for i in range(2)]
+    model_name_2_array = model_name_1.split('_')
+    seed = int(model_name_2_array[-1])
+    model_name_2_array[-1] = str(seed + dif)
+    model_name_2 = '_'.join(model_name_2_array)
+    model_names = [model_name_1, model_name_2]
+    tasks = [task, "grasp" if task == "cls" else "cls"]
+    for i, model_name in enumerate(model_names):
+        for layer in LAYERS:
+            results = {}
+            players = []
+            for model_type in [tasks[i]]:
+                ## CB directory
+                run_name = '%s_%s_%s' % (model_name, layer, model_type)
+                run_dir = os.path.join(DIR, run_name)
+                players = get_players(run_dir)
+                instatiate_chosen_players(run_dir, players)    
+                results[model_type] = get_results_list(run_dir)
+                players_dict[i][layer] = players
+                results_dict_by_layer[i][layer] = results
+    for i,layer in enumerate(LAYERS):
+        results = {'task1': results_dict_by_layer[0][layer][task], 'task2': results_dict_by_layer[1][layer]["grasp" if task == "cls" else "cls"]}
+        players = players_dict[0][layer]
+        vals = {}
+        for task_spec in results.keys():
+            squares, sums, counts = [np.zeros(len(players)) for _ in range(3)]
+            for result in results[task_spec]:
+                print(result)
+                mem_tmc = get_result(result)
+                sums += np.sum((mem_tmc != -1) * mem_tmc, 0)
+                squares += np.sum((mem_tmc != -1) * (mem_tmc ** 2), 0)
+                counts += np.sum(mem_tmc != -1, 0)
+            # No. of iterations for each neuron
+            counts = np.clip(counts, 1e-12, None)
+            # Expected shapley values of each neuron
+            vals[task_spec] = sums / (counts + 1e-12)
+        # Assuming vals is already calculated for the two tasks:
+        task_1 = list(results.keys())[0]  # Access the first task
+        task_2 = list(results.keys())[1]  # Access the second task
+        # Extract the values for both tasks
+        vals_task_1 = vals[task_1]
+        vals_task_2 = vals[task_2]
+        final[i,:len(vals_task_1),0] = vals_task_1
+        final[i,:len(vals_task_2),1] = vals_task_2
+    np.save(f'shap_arrays/shap_values_opposite_pretrain_{task}_{params.SEED}.npy', final)
+def concatenate_shap_arrays(task = "cls", seeds = [31,51,81]):
+    """
+        concatenate the shapley arrays with the given seeds into one array
+        resulting shape: (5, 128 * n_seeds, 2) — layers x pooled neurons x tasks
+    """
+    filename_prefix = f'shap_arrays/shap_values_opposite_pretrain_'
+    arrays = []
+    for seed in seeds:
+        filepath = f'{filename_prefix}{task}_{seed}.npy'
+        if not os.path.exists(filepath):
+            print(f"Warning: {filepath} not found, skipping seed {seed}")
+            continue
+        arr = np.load(filepath)  # shape: (5, 128, 2)
+        arrays.append(arr)
+
+    if len(arrays) == 0:
+        raise FileNotFoundError(f"No shap arrays found for task={task}, seeds={seeds}")
+
+    concatenated = np.concatenate(arrays, axis=1)  # shape: (5, 128 * n_seeds, 2)
+    out_path = f'shap_arrays/shap_values_opposite_pretrain_{task}_concatenated.npy'
+    np.save(out_path, concatenated)
+    print(f"Saved concatenated array of shape {concatenated.shape} to {out_path}")
+    return concatenated
+def dump_raw_scores():
+    seeds = [31,32,35,36,51,52,95,56,62,65,67,70,72,75,76,81,82,85,86]
+    reg_seed = [43,44,45,0, 47]
+    for seed in seeds:
+        if str(seed)[-1] in ["1", "5", "0"]:
+            task = "cls"
+        else:
+            task = "grasp"
+        
+        model_name_1 = params.MODEL_NAME_SEED
+
+        players_dict = {}
+        results_dict_by_layer = {}
+        model_name_2_array = model_name_1.split('_')
+        model_name_2_array[-1] = str(seed)
+        model_name = '_'.join(model_name_2_array)
+        for layer in LAYERS:
+            results = {}
+            players = []
+            run_name = '%s_%s_%s' % (model_name, layer, task)
+            run_dir = os.path.join(DIR, run_name)
+            players = get_players(run_dir)
+            instatiate_chosen_players(run_dir, players)    
+            results[task] = get_results_list(run_dir)
+            players_dict[layer] = players
+            results_dict_by_layer[layer] = results
+        for i,layer in enumerate(LAYERS):
+            results = results_dict_by_layer[layer][task]
+            players = players_dict[layer]
+            squares, sums, counts = [np.zeros(len(players)) for _ in range(3)]
+            for result in results:
+                mem_tmc = get_result(result)
+                sums += np.sum((mem_tmc != -1) * mem_tmc, 0)
+                squares += np.sum((mem_tmc != -1) * (mem_tmc ** 2), 0)
+                counts += np.sum(mem_tmc != -1, 0)
+            # No. of iterations for each neuron
+            counts = np.clip(counts, 1e-12, None)
+            # Expected shapley values of each neuron
+            vals = sums / (counts + 1e-12)
+            # Assuming vals is already calculated for the two tasks:
+              # Access the first task
+            # Extract the values for both tasks
+            out_path = f'shap_arrays/raw_scores.csv'
+            write_header = not os.path.exists(out_path)
+            with open(out_path, 'a') as f:
+                if write_header:
+                    f.write('seed,layer,task,neuron_idx,shapley_value\n')
+                for neuron_idx, val in enumerate(vals):
+                    f.write(f'{seed},{layer},{task},{neuron_idx},{val}\n')
+            
 if __name__ == '__main__':
     if DIR not in os.listdir('vis'):
         os.mkdir(os.path.join('vis', DIR))
-    model_name = params.MODEL_NAME
+    # concatenate_shap_arrays("grasp", seeds = [32, 52, 62, 72, 82])
+    # init_cross_seed_dif_task_avr(seeds = [[31, 51,81], [32, 52, 62, 72, 82]])
+    # exit()
+    dump_raw_scores()
+    exit()
+    if str(params.SEED)[-1] in ["1", "5", "0"]:
+        task = "cls"
+        diff = 5
+    else:
+        task = "grasp"
+        diff = 3
+        if params.SEED == 52:
+            diff += 40
+    # save_shap_vals_dif_task(task, dif = diff)
+    # exit()
+    # init_cross_seed_dif_task(task, dif = diff)
+    # exit()
+    model_name = params.MODEL_NAME_SEED
 
     players_dict = {}
     results_dict_by_layer = {}
@@ -422,15 +924,13 @@ if __name__ == '__main__':
             ## CB directory
             run_name = '%s_%s_%s' % (model_name, layer, model_type)
             run_dir = os.path.join(DIR, run_name)
-
+            print(run_dir)
             players = get_players(run_dir)
             instatiate_chosen_players(run_dir, players)    
             results[model_type] = get_results_list(run_dir)
             players_dict[layer] = players
             results_dict_by_layer[layer] = results
-
         #plot_layer_by_task(players, results, layer)
-
     for model_type in TYPES:
         for layer in LAYERS:
             ## CB directory
@@ -441,9 +941,10 @@ if __name__ == '__main__':
             instatiate_chosen_players(run_dir, players)    
             results = get_results_list(run_dir)
            
-            #plot_shapley_dist(players, results, model_type, layer)
+            plot_shapley_dist(players, results, model_type, layer)
     
     #         plot_shapley_conf_trend(players, results, model_type, layer)
+    
     r_value = []
     confidence_intervals = []
     for layer in LAYERS:
@@ -489,5 +990,3 @@ if __name__ == '__main__':
     # plt.savefig('vis/shap/layer_corr/all_layers.png')
 
     plot_all_layer_scatter(players_dict, results_dict_by_layer, LAYERS)
-
-

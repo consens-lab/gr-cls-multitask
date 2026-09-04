@@ -133,3 +133,5 @@ PsychToolbox / analysis MATLAB is intended under `matlab_files/`. The public clo
 - Edit training / data paths in `utils/parameters.py` rather than hard-coding in scripts.  
 - Do not commit secrets, raw EEG, or large untracked dumps; respect `.gitignore`.  
 - Paper–code details (RDM metric, seed lists, lesion indices) should stay aligned with the manuscript before claiming full reproducibility.
+## Citations
+Enter citations and/or acknowledgements here

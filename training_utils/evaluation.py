@@ -21,7 +21,7 @@ from utils.grasp_utils import get_correct_grasp_preds, grasps_to_bboxes, box_iou
 
 params = Params()
 
-def get_cls_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, truncation=None, device=params.DEVICE, shap_mask=[], activations=[], dissociate=[], connect=False, skip=1):
+def get_cls_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, truncation=None, device=params.DEVICE, shap_mask=[], activations=[], dissociate=[], connect=False, skip=1, shap_layer="first"):
     """Returns the test accuracy and loss of a CLS model."""
     loss = 0
     correct = 0
@@ -35,7 +35,7 @@ def get_cls_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, 
                 if truncation is not None and (i * params.BATCH_SIZE / data_loader.n_data) > truncation:
                     break
                 if len(shap_mask):
-                    output = model(img, is_grasp=False, shap_mask=shap_mask, activations=activations, connect=connect)
+                    output = model(img, is_grasp=False, shap_mask=shap_mask, activations=activations, connect=connect,shap_layer=shap_layer)
                 else:
                     output = model(img, is_grasp=False,dissociate=dissociate)
                 batch_correct, batch_total = get_correct_cls_preds_from_map(output, label)
@@ -43,7 +43,10 @@ def get_cls_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, 
                 total += batch_total
     else:
         data_loader = DataLoader(dataset, params.BATCH_SIZE, params.TRAIN_VAL_SPLIT, seed=seed)
+        print("here")
+        print(data_loader.load_batch())
         for i, (img, cls_map, label) in enumerate(data_loader.load_batch()):
+            print("here")
             if i % skip == 0:
                 if truncation is not None and (i * params.BATCH_SIZE / data_loader.n_data) > truncation:
                     break
@@ -55,7 +58,7 @@ def get_cls_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, 
     return accuracy, round(loss / total, 3)
 
 
-def get_grasp_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, truncation=None, device=params.DEVICE, shap_mask=[], activations=[],dissociate=[], connect=False,skip=1):
+def get_grasp_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH, truncation=None, device=params.DEVICE, shap_mask=[], activations=[],dissociate=[], connect=False,skip=1,shap_layer="first"):
     """Returns the test accuracy and loss of a Grasp model."""
     loss = 0
     correct = 0
@@ -69,7 +72,7 @@ def get_grasp_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH
                 if truncation is not None and (i * params.BATCH_SIZE / data_loader.n_data) > truncation:
                     break
                 if len(shap_mask):
-                    output = model(img, is_grasp=True, shap_mask=shap_mask, activations=activations, connect=connect)
+                    output = model(img, is_grasp=True, shap_mask=shap_mask, activations=activations, connect=connect, shap_layer=shap_layer)
                 else:
                     output = model(img, is_grasp=True,dissociate=dissociate)
                 # Move grasp channel to the end
@@ -80,6 +83,8 @@ def get_grasp_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH
                 # Convert grasp map into single grasp prediction
                 output_grasp = map2singlegrasp(output)
                 output_grasp = torch.unsqueeze(output_grasp, dim=1).repeat(1, candidates.shape[0], 1)
+                if torch.isnan(output_grasp).any() or torch.isinf(output_grasp).any():
+                    continue
                 batch_correct, batch_total =  get_correct_grasp_preds(output_grasp, candidates[None, :, :]) #get_correct_grasp_preds_from_map(output, map)
                 correct += batch_correct
                 total += batch_total
@@ -97,8 +102,11 @@ def get_grasp_acc(model, include_depth=True, seed=None, dataset=params.TEST_PATH
                 denormalize_grasp(output)
 
                 # Convert grasp map into single grasp prediction
+                # Convert grasp map into single grasp prediction
                 output_grasp = map2singlegrasp(output)
                 output_grasp = torch.unsqueeze(output_grasp, dim=1).repeat(1, candidates.shape[1], 1)
+                if torch.isnan(output_grasp).any() or torch.isinf(output_grasp).any():
+                    continue
                 batch_correct, batch_total =  get_correct_grasp_preds(output_grasp, candidates) #get_correct_grasp_preds_from_map(output, map)
                 correct += batch_correct
                 total += batch_total

@@ -19,13 +19,55 @@ class Params:
         #self.MODEL_NAME = 'grConvMap_cls_top5_v1.0'
         # Grasp name format
         self.MODEL_NAME = 'multiAlexMap_top5_v1.5'
+        #Seed instructions
+        # 1=pretrained on grasp, then trained on cls
+        # 2=pretrained on cls, then trained on grasp
+        # 11=singletask model cls
+        # 22 = single task model grasp
+        
+        # 31 = single task model cls v2 (trained post steven)
+        # 32 = single task model grasp v2 (trained post steven)
+        # 33 = single task model cls, pretrained on grasp v2
+        # 34 = single task model grasp, pretrained on cls v2 
+        # 35 = single task model cls, pretrained on grasp v2 (frozen extractions) cls accuracy = 53.25
+        # 36 = single task model grasp, pretrained on cls v2 (frozen extractions) grasp accuracy = 76
+        # 43-47 + no_seed = base model
+        # 51 = single task model cls v2 (trained post steven)
+        # 52 = single task model grasp v2 (trained post steven)
+        # 55 = single task model cls, pretrained on grasp v2 (frozen extractions) cls accuracy = 53.25
+        # 56 = single task model grasp, pretrained on cls v2 (frozen extractions) grasp accuracy = 76
+        # 61 = single task model cls v2 (trained post steven)
+        # 62 = single task model grasp v2 (trained post steven)
+        # 65 = single task model cls, pretrained on grasp v2 (frozen extractions) cls accuracy = 63.25
+        # 66 = single task model grasp, pretrained on cls v2 (frozen extractions) grasp accuracy = 76.25
+        # 71 = single task model cls v2 (trained post steven)
+        # 72 = single task model grasp v2 (trained post steven)
+        # 75 = single task model cls, pretrained on grasp v2 (A2000) (frozen extractions) cls accuracy = 61.75
+        # 76 = single task model grasp, pretrained on cls v2 (frozen extractions) grasp accuracy = 76.25
+        # 81 = single task model cls v2 (trained post steven)
+        # 82 = single task model grasp v2 (trained post steven)
+        # 85 = single task model cls, pretrained on grasp v2 (A2000) (frozen extractions) cls accuracy =  66.5
+        # 86 = single task model grasp, pretrained on cls v2 (A2000) (frozen extractions) grasp accuracy = 77.25
+        
+        
+        # 95 = 55
+        # 67 = 66
+        # 70 = 71
+        
+        # 203=depth input only
+        # 301=rgb only 
+        # i think 400 is trained with weight decay/L2 reg
 
+        self.SEED = 95
+
+        self.MODEL_NAME_SEED = self.MODEL_NAME + f"_{self.SEED}"
         self.CLS_MODEL_NAME = 'alexnetMap_cls_top5_v3.2.2'
         self.GRASP_MODEL_NAME = 'alexnetMap_grasp_top5_v3.2.2'
 
         # device: cpu / gpu
         self.DEVICE = torch.device('cuda') if torch.cuda.is_available() \
                                       else torch.device('cpu')
+        self.LOSS_WEIGHT = 1.5
         # Training params
         self.NUM_CLASS = 5
         self.NUM_CHANNEL = 4
@@ -36,7 +78,9 @@ class Params:
         self.BATCH_SIZE = 5
         self.TRAIN_VAL_SPLIT = 0.1
         self.DISTILL_ALPHA = 1.0
-
+        self.TRAIN_TASK_REP_PATH = './data/task_rep/train/data_location.pickle'
+        self.TEST_TASK_REP_PATH = './data/task_rep/test/data_location.pickle'
+        
         # Shapley params
         self.TOP_K = 5
         self.DATA_TRUNCATION = 0.5
@@ -54,8 +98,11 @@ class Params:
 
         self.MODEL_PATH = 'trained-models'
         self.MODEL_WEIGHT_PATH = 'trained-models/%s/%s_final.pth' % (self.MODEL_NAME, self.MODEL_NAME)
+        self.MODEL_WEIGHT_PATH_SEED = 'trained-models/%s/%s_%s_final.pth' % (self.MODEL_NAME_SEED, self.MODEL_NAME, self.SEED)
         self.CLS_MODEL_PATH = 'trained-models/%s/%s_epoch%s.pth' % (self.CLS_MODEL_NAME, self.CLS_MODEL_NAME, self.EPOCHS)
         self.GRASP_MODEL_PATH = 'trained-models/%s/%s_epoch%s.pth' % (self.GRASP_MODEL_NAME, self.GRASP_MODEL_NAME, self.EPOCHS)
-
-        self.MODEL_LOG_PATH = 'trained-models/%s' % self.MODEL_NAME
+        self.CLS_WEIGHT_PATH = 'trained-models/alexnetMap_cls.pth'
+        self.GRASP_WEIGHT_PATH = 'trained-models/alexnetMap_grasp.pth'
+        
+        self.MODEL_LOG_PATH = 'trained-models/%s_%s' % (self.MODEL_NAME, self.SEED)
         self.LOG_PATH = 'logs'

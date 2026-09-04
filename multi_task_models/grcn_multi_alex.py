@@ -108,7 +108,8 @@ class Multi_AlexnetMap_v3(nn.Module):
             param.requires_grad = False
         for param in self.d_features.parameters():
             param.requires_grad = False
-
+        for param in self.features.parameters(): # only for experiment on opposite pretrained
+            param.requires_grad = False
         # xavier initialization for combined feature extractor
         for m in self.features.modules():
             if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
@@ -123,10 +124,11 @@ class Multi_AlexnetMap_v3(nn.Module):
             if isinstance(m, (nn.ConvTranspose2d)):
                 nn.init.xavier_uniform_(m.weight, gain=1)
     
-    def forward(self, x, is_grasp=True, shap_mask=[], activations=[], dissociate=[], connect = False):
+    def forward(self, x, is_grasp=True, shap_mask=[], activations=[], dissociate=[], connect = False, shap_layer="first"):
         rgb = x[:, :3, :, :]
         d = torch.unsqueeze(x[:, 3, :, :], dim=1)
         d = torch.cat((d, d, d), dim=1)
+        # d = torch.zeros(d.shape).to("cuda")
         # d = torch.zeros(d.shape).to("cuda")
         # First Layer Shapley!!!!! -------------------------------------------------------
         # if shap_mask != []:
@@ -154,21 +156,21 @@ class Multi_AlexnetMap_v3(nn.Module):
         if shap_mask != []:
             shap_mask_idx = shap_mask.bool()  # Convert to a boolean mask for indexing
             # Broadcast activations to match the shape of the output
-            broadcasted_activations = activations.unsqueeze(0)  # Add batch dimension
-            broadcasted_activations = broadcasted_activations.expand_as(x)  # Expand to match rgb_conv_out's shape
-            # Set rgb_conv_out where shap_mask is True
-            x[:, shap_mask_idx, :, :] = broadcasted_activations[:, shap_mask_idx, :, :]
-            for i in range(len(self.features)):
-                x = self.features[i](x)
-            #------------shapley non first layer ----------
-            # features_conv_out = self.features[0:11](x)
-            # shap_mask_idx = shap_mask.bool()  # Convert to a boolean mask for indexing
-            # # Broadcast activations to match the shape of the output
-            # broadcasted_activations = activations.unsqueeze(0)  # Add batch dimension
-            # broadcasted_activations = broadcasted_activations.expand_as(features_conv_out)  # Expand to match rgb_conv_out's shape
-            # # Set rgb_conv_out where shap_mask is True
-            # features_conv_out[:, shap_mask_idx, :, :] = broadcasted_activations[:, shap_mask_idx, :, :]
-            # x = self.features[11:](features_conv_out)
+            if shap_layer == "first":
+                broadcasted_activations = activations.unsqueeze(0)  # Add batch dimension
+                broadcasted_activations = broadcasted_activations.expand_as(x)              
+                x[:, shap_mask_idx, :, :] = broadcasted_activations[:, shap_mask_idx, :, :]
+                for i in range(len(self.features)):
+                    x = self.features[i](x)
+            else:
+                #------------shapley non first layer ----------
+                layer_plus_1 = int(shap_layer.split(".")[1]) + 1
+                features_conv_out = self.features[0:layer_plus_1](x)
+                broadcasted_activations = activations.unsqueeze(0)  # Add batch dimension
+                broadcasted_activations = broadcasted_activations.expand_as(features_conv_out)  # Expand to match rgb_conv_out's shape
+                # Set rgb_conv_out where shap_mask is True
+                features_conv_out[:, shap_mask_idx, :, :] = broadcasted_activations[:, shap_mask_idx, :, :]
+                x = self.features[layer_plus_1:](features_conv_out)
         elif dissociate != []:
             prev = 0
             for index, i in enumerate([1,5,8,11]):
@@ -201,6 +203,30 @@ class Multi_AlexnetMap_v3(nn.Module):
         
         for param in self.d_features.parameters():
             param.requires_grad = True
+            
+    def forward_with_connection_mask(self, x, connection_mask, avg_conn_activations, layer_i):
+        # x: [batch, in_channels, H, W]
+        W = self.features[layer_i].weight  # [out_channels, in_channels, kH, kW]
+        b = self.features[layer_i].bias
+
+        # Standard convolution
+        conv_out = self.features[layer_i](x)
+
+        # Replace masked connections with average activation
+        for tgt in range(W.shape[0]):
+            for src in range(W.shape[1]):
+                if connection_mask[tgt, src]:
+                    # Remove actual contribution
+                    x_src = x[:, src:src+1, :, :]
+                    w = W[tgt:tgt+1, src:src+1, :, :]
+                    actual_contrib = torch.nn.functional.conv2d(x_src, w, bias=None,
+                                                            stride=self.features[layer_i].stride,
+                                                            padding=self.features[layer_i].padding)
+                    conv_out[:, tgt] -= actual_contrib.squeeze(1)
+                    # Add average activation
+                    avg_act = torch.tensor(avg_conn_activations[tgt, src]).to(conv_out.device)
+                    conv_out[:, tgt] += avg_act
+        return conv_out
             
     def forward_with_connection_mask(self, x, connection_mask, avg_conn_activations, layer_i):
         # x: [batch, in_channels, H, W]
